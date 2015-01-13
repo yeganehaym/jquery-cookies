@@ -1,8 +1,8 @@
 /**
  * jQuery jCookies
  *
- * @url		http://iambrian.com/#/jcookies
- * @author	Brian S. Reed <me@iambrian.com>
+ * @url		http://scottreeddesign.com/project/jcookies-jquery-plugin
+ * @author	Brian Reed <brian@scottreeddesign.com>
  * @version	1.0.0
 **/ 
 (function($){
@@ -56,10 +56,10 @@
 				if(o.get == "*" && raw_data) {
 					for(name in raw_data)
 						try{
-							raw_data[name] = JSON.parse(atob(raw_data[name]));
+						    raw_data[name] = JSON.parse(Conv86.utf16.from64(raw_data[name]));
 						}catch(exception){
 							try{
-								raw_data[name] = JSON.parse(atob(decodeURIComponent(raw_data[name])));
+							    raw_data[name] = JSON.parse(Conv86.utf16.from64(decodeURIComponent(raw_data[name])));
 							}catch(exception2){
 								if(o.error) return exception2;								
 							}							
@@ -72,7 +72,7 @@
 				for(x in names)
 					if(names[x] == o.get)
 					try{
-						return JSON.parse(atob(raw_data[o.get]));
+					    return JSON.parse(Conv86.utf16.from64(raw_data[o.get]));
 					}catch(exception){
 						if(o.error) return exception;
 					}
@@ -95,7 +95,7 @@
 			}else{
 				date.setTime(date.getTime() + (o.days*24*60*60*1000));
 			}
-			document.cookie = o.name + "=" + btoa(JSON.stringify(o.value)) + "; expires=" + date.toGMTString() + "; path=/";
+			document.cookie = o.name + "=" + Conv86.utf16.to64(JSON.stringify(o.value)) + "; expires=" + date.toGMTString() + "; path=/";
 			return true;
 	// get cookie			
 		} else return false;			
@@ -112,8 +112,229 @@
 })(jQuery);
 
 /* load base64 functions if not loaded (ie or opera!)*/
-if(typeof btoa == 'undefined'){function btoa(str){var chars='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';var encoded=[];var c=0;while(c<str.length){var b0=str.charCodeAt(c++);var b1=str.charCodeAt(c++);var b2=str.charCodeAt(c++);var buf=(b0<<16)+((b1||0)<<8)+(b2||0);var i0=(buf&(63<<18))>>18;var i1=(buf&(63<<12))>>12;var i2=isNaN(b1)?64:(buf&(63<<6))>>6;var i3=isNaN(b2)?64:(buf&63);encoded[encoded.length]=chars.charAt(i0);encoded[encoded.length]=chars.charAt(i1);encoded[encoded.length]=chars.charAt(i2);encoded[encoded.length]=chars.charAt(i3)}return encoded.join('')}}
-if(typeof atob == 'undefined'){function atob(str){var chars='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';var invalid={strlen:(str.length%4!=0),chars:new RegExp('[^'+chars+']').test(str),equals:(/=/.test(str)&&(/=[^=]/.test(str)||/={3}/.test(str)))};if(invalid.strlen||invalid.chars||invalid.equals)throw new Error('Invalid base64 data');var decoded=[];var c=0;while(c<str.length){var i0=chars.indexOf(str.charAt(c++));var i1=chars.indexOf(str.charAt(c++));var i2=chars.indexOf(str.charAt(c++));var i3=chars.indexOf(str.charAt(c++));var buf=(i0<<18)+(i1<<12)+((i2&63)<<6)+(i3&63);var b0=(buf&(255<<16))>>16;var b1=(i2 == 64)?-1:(buf&(255<<8))>>8;var b2=(i3 == 64)?-1:(buf&255);decoded[decoded.length]=String.fromCharCode(b0);if(b1>=0)decoded[decoded.length]=String.fromCharCode(b1);if(b2>=0)decoded[decoded.length]=String.fromCharCode(b2)}return decoded.join('')}}
+if (typeof Conv86 == 'undefined') {
+    var Conv86 = (function () {
+        var chars = (
+                'ABCDEFGHIJKLMNOPQRSTUVWXYZ' +
+                'abcdefghijklmnopqrstuvwxyz' +
+                '0123456789+/'
+            ),
+            inver = {}, i;
+        for (i = 0; i < chars.length; ++i) {
+            inver[chars[i]] = i;
+        }
+        function base8To6(arr8) {
+            var arr6 = [], i,
+                e1, e2, e3,
+                s1, s2, s3, s4,
+                d1, d2, d3;
+            for (i = 0; i < arr8.length; i += 3) {
+                e1 = (d1 = arr8[i]) & 255;
+                e2 = (d2 = arr8[i + 1]) & 255;
+                e3 = (d3 = arr8[i + 2]) & 255;
+                // wwwwwwxx xxxxyyyy yyzzzzzz
+                s1 = e1 >>> 2;
+                s2 = ((e1 & 3) << 4) + (e2 >>> 4);
+                s3 = ((e2 & 15) << 2) + (e3 >>> 6);
+                s4 = e3 & 63;
+                arr6.push(s1, s2);
+                if (d3 !== undefined)
+                    arr6.push(s3, s4);
+                else if (d2 !== undefined)
+                    arr6.push(s3);
+            }
+            arr6.byteLength = arr8.length;
+            return arr6;
+        }
+        function base6To8(arr6) {
+            var arr8 = [], i,
+                e1, e2, e3,
+                s1, s2, s3, s4,
+                d1, d2, d3, d4;
+            for (i = 0; i < arr6.length; i += 4) {
+                s1 = (d1 = arr6[i]) & 63;
+                s2 = (d2 = arr6[i + 1]) & 63;
+                s3 = (d3 = arr6[i + 2]) & 63;
+                s4 = (d4 = arr6[i + 3]) & 63;
+                // xxxxxx xxyyyy yyyyzz zzzzzz
+                e1 = (s1 << 2) + (s2 >>> 4);
+                e2 = ((s2 & 15) << 4) + (s3 >>> 2);
+                e3 = ((s3 & 3) << 6) + s4;
+                arr8.push(e1);
+                if (d3 !== undefined)
+                    arr8.push(e2, e3);
+                else if (d2 !== undefined)
+                    arr8.push(e2);
+            }
+            if (arr6.byteLength !== undefined)
+                arr8.length = +arr6.byteLength;
+            return arr8;
+        }
+        function base6To64(arr6) {
+            var i, b64 = '';
+            for (i = 0; i < arr6.length; ++i) b64 += chars.charAt(arr6[i]);
+            /*if (arr6.bytesLength) {
+                i = arr6.bytesLength % 3;
+                if (i) ++i;
+            } else */
+            i = b64.length % 4;
+            b64 += ['', '==', '==', '='][i];
+            return b64;
+        }
+        function base8To64(arr8) {
+            return base6To64(base8To6(arr8));
+        }
+        function base64To6(b64) {
+            var arr6 = [],
+                i = b64.length, lenMod = 0;
+            while (b64.charAt(--i) === '=')
+                ++lenMod;
+            for (i = 0; i < b64.length - lenMod; ++i)
+                arr6.push(inver[b64.charAt(i)]);
+            i = b64.length & 3;
+            if (i) i = 4 - i;
+            i = i + b64.length;
+            arr6.byteLength = 3 * i / 4 - lenMod;
+            return arr6;
+        }
+        function base64To8(b64) {
+            return base6To8(base64To6(b64));
+        }
+        // base16
+        function base8To16(arr8) {
+            var i, arr16 = [];
+            for (i = 0; i < arr8.length; i = i + 2)
+                arr16.push((arr8[i] << 8) + arr8[i + 1]);
+            return arr16;
+        }
+        function base16To8(arr16) {
+            var i, arr8 = [];
+            for (i = 0; i < arr16.length; ++i)
+                arr8.push(arr16[i] >>> 8, arr16[i] & 255);
+            return arr8;
+        }
+        function base6To16(arr6) {
+            return base8To16(base6To8(arr6));
+        }
+        function base16To6(arr16) {
+            return base8To6(base16To8(arr16));
+        }
+        function base16To64(arr16) {
+            return base8To64(base16To8(arr16));
+        }
+        function base64To16(b64) {
+            return base8To16(base64To8(b64));
+        }
+        // from UTF8 to X
+        function utf8To8(str) {
+            var arr8 = [], i;
+            for (i = 0; i < str.length; ++i)
+                arr8.push(str.charCodeAt(i) & 255);
+            return arr8;
+        }
+        function utf8To6(str) {
+            return base8To6(utf8To8(str));
+        }
+        function utf8To16(str) {
+            return base8To16(utf8To8(str));
+        }
+        function utf8To64(str) {
+            return base8To64(utf8To8(str));
+        }
+        // from X to UTF8
+        function utf8From8(arr8) {
+            var utf8arr = [];
+            for (i = 0; i < arr8.length; ++i)
+                utf8arr.push(arr8[i]);
+            return String.fromCharCode.apply(String, utf8arr);
+        }
+        function utf8From6(arr6) {
+            return utf8From8(base6To8(arr6));
+        }
+        function utf8From16(arr16) {
+            return utf8From8(base16To8(arr16));
+        }
+        function utf8From64(b64) {
+            return utf8From8(base64To8(b64));
+        }
+        // from UTF16 to X
+        function utf16To16(str) {
+            var arr16 = [], i, c;
+            for (i = 0; i < str.length; ++i) {
+                c = str.charCodeAt(i) & 65535;
+                arr16.push(((c & 255) << 8) + (c >>> 8));
+            }
+            return arr16;
+        }
+        function utf16To8(str) {
+            return base16To8(utf16To16(str));
+        }
+        function utf16To6(str) {
+            return base16To6(utf16To16(str));
+        }
+        function utf16To64(str) {
+            return base16To64(utf16To16(str));
+        }
+        // from X to UTF16
+        function utf16From16(arr16) {
+            var utf16arr = [];
+            for (i = 0; i < arr16.length; ++i)
+                utf16arr.push(((arr16[i] & 255) << 8) + (arr16[i] >>> 8));
+            return String.fromCharCode.apply(String, utf16arr);
+        }
+        function utf16From8(arr8) {
+            return utf16From16(base8To16(arr8));
+        }
+        function utf16From6(arr6) {
+            return utf16From16(base6To16(arr6));
+        }
+        function utf16From64(b64) {
+            return utf16From16(base64To16(b64));
+        }
+        return {
+            base6: {
+                to8: base6To8,
+                to16: base6To16,
+                to64: base6To64,
+            },
+            base8: {
+                to6: base8To6,
+                to16: base8To16,
+                to64: base8To64
+            },
+            base16: {
+                to6: base16To6,
+                to8: base16To8,
+                to64: base16To64
+            },
+            base64: {
+                to6: base64To6,
+                to8: base64To8,
+                to16: base64To16
+            },
+            utf8: {
+                to8: utf8To8,
+                to6: utf8To6,
+                to16: utf8To16,
+                to64: utf8To64,
+                from8: utf8From8,
+                from6: utf8From6,
+                from16: utf8From16,
+                from64: utf8From64
+            },
+            utf16: {
+                to8: utf16To8,
+                to6: utf16To6,
+                to16: utf16To16,
+                to64: utf16To64,
+                from8: utf16From8,
+                from6: utf16From6,
+                from16: utf16From16,
+                from64: utf16From64
+            }
+        };
+    }());
+}
 
 /* load JSON if not loaded */
 if(!this.JSON){this.JSON={}}(function(){function f(n){return n<10?'0'+n:n}if(typeof Date.prototype.toJSON!== 'function'){Date.prototype.toJSON=function(key){return isFinite(this.valueOf())?this.getUTCFullYear()+'-'+f(this.getUTCMonth()+1)+'-'+f(this.getUTCDate())+'T'+f(this.getUTCHours())+':'+f(this.getUTCMinutes())+':'+f(this.getUTCSeconds())+'Z':null};String.prototype.toJSON=Number.prototype.toJSON=Boolean.prototype.toJSON=function(key){return this.valueOf()}}var cx=/[\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,escapable=/[\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,gap,indent,meta={'\b':'\\b','\t':'\\t','\n':'\\n','\f':'\\f','\r':'\\r','"':'\\"','\\':'\\\\'},rep;function quote(string){escapable.lastIndex=0;return escapable.test(string)?'"'+string.replace(escapable,function(a){var c=meta[a];return typeof c==='string'?c:'\\u'+('0000'+a.charCodeAt(0).toString(16)).slice(-4)})+'"':'"'+string+'"'}function str(key,holder){var i,k,v,length,mind=gap,partial,value=holder[key];if(value&&typeof value==='object'&&typeof value.toJSON==='function'){value=value.toJSON(key)}if(typeof rep==='function'){value=rep.call(holder,key,value)}switch(typeof value){case'string':return quote(value);case'number':return isFinite(value)?String(value):'null';case'boolean':case'null':return String(value);case'object':if(!value){return'null'}gap+=indent;partial=[];if(Object.prototype.toString.apply(value)==='[object Array]'){length=value.length;for(i=0;i<length;i+=1){partial[i]=str(i,value)||'null'}v=partial.length===0?'[]':gap?'[\n'+gap+partial.join(',\n'+gap)+'\n'+mind+']':'['+partial.join(',')+']';gap=mind;return v}if(rep&&typeof rep==='object'){length=rep.length;for(i=0;i<length;i+=1){k=rep[i];if(typeof k==='string'){v=str(k,value);if(v){partial.push(quote(k)+(gap?': ':':')+v)}}}}else{for(k in value){if(Object.hasOwnProperty.call(value,k)){v=str(k,value);if(v){partial.push(quote(k)+(gap?': ':':')+v)}}}}v=partial.length===0?'{}':gap?'{\n'+gap+partial.join(',\n'+gap)+'\n'+mind+'}':'{'+partial.join(',')+'}';gap=mind;return v}}if(typeof JSON.stringify!== 'function'){JSON.stringify=function(value,replacer,space){var i;gap='';indent='';if(typeof space==='number'){for(i=0;i<space;i+=1){indent+=' '}}else if(typeof space==='string'){indent=space}rep=replacer;if(replacer&&typeof replacer!== 'function'&&(typeof replacer!== 'object'||typeof replacer.length!== 'number')){throw new Error('JSON.stringify');}return str('',{'':value})}}if(typeof JSON.parse!== 'function'){JSON.parse=function(text,reviver){var j;function walk(holder,key){var k,v,value=holder[key];if(value&&typeof value==='object'){for(k in value){if(Object.hasOwnProperty.call(value,k)){v=walk(value,k);if(v!== undefined){value[k]=v}else{delete value[k]}}}}return reviver.call(holder,key,value)}text=String(text);cx.lastIndex=0;if(cx.test(text)){text=text.replace(cx,function(a){return'\\u'+('0000'+a.charCodeAt(0).toString(16)).slice(-4)})}if(/^[\],:{}\s]*$/.test(text.replace(/\\(?:["\\\/bfnrt]|u[0-9a-fA-F]{4})/g,'@').replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g,']').replace(/(?:^|:|,)(?:\s*\[)+/g,''))){j=eval('('+text+')');return typeof reviver==='function'?walk({'':j},''):j}throw new SyntaxError('JSON.parse');}}}()); /**/
